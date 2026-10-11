@@ -1,0 +1,8 @@
+AzureActivity
+| where TimeGenerated > ago(24h)
+| where ResourceGroup =~ "rg-atlas-soc-20261010"
+| where OperationNameValue in~ ("MICROSOFT.SECURITYINSIGHTS/ALERTRULES/WRITE", "MICROSOFT.SECURITYINSIGHTS/ALERTRULES/DELETE")
+| where ActivityStatusValue =~ "Success"
+| where now() < datetime(2026-10-11T18:00:00Z)
+| summarize arg_max(TimeGenerated, *) by CorrelationId, OperationNameValue
+| project TimeGenerated, OperationNameValue, ActivityStatusValue, ResourceGroup, ResourceId, CorrelationId, LabOnly=true

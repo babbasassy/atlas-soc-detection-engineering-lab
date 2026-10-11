@@ -1,0 +1,23 @@
+// LAB ONLY: synthetic data, no real sign-in or attack. Not an ingestion test.
+let anchor = now();
+let Events = datatable(AgeSeconds:long, Account:string, IPAddress:string, Outcome:string)
+[
+  240, "atlas.demo@example.invalid", "192.0.2.10", "Failure",
+  210, "atlas.demo@example.invalid", "192.0.2.10", "Failure",
+  180, "atlas.demo@example.invalid", "192.0.2.10", "Failure",
+  150, "atlas.demo@example.invalid", "192.0.2.10", "Failure",
+  120, "atlas.demo@example.invalid", "192.0.2.10", "Failure",
+  30, "atlas.demo@example.invalid", "192.0.2.10", "Success",
+  20, "normal.user@example.invalid", "192.0.2.20", "Success"
+]
+| extend TimeGenerated = anchor - AgeSeconds * 1s;
+let Failures = Events
+| where Outcome == "Failure"
+| summarize FailureCount=count(), FirstFailure=min(TimeGenerated), LastFailure=max(TimeGenerated) by Account, IPAddress
+| where FailureCount >= 5;
+Events
+| where Outcome == "Success"
+| join kind=inner Failures on Account, IPAddress
+| where TimeGenerated > LastFailure and TimeGenerated - FirstFailure <= 5m
+| where now() < datetime(2026-10-11T04:00:00Z)
+| project TimeGenerated, Account, IPAddress, FailureCount, FirstFailure, LastFailure, LabOnly=true, EvidenceType="Synthetic KQL fixture"

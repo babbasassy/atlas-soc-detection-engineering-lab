@@ -1,0 +1,4 @@
+evidence-private/
+*.zip
+*.log
+.env

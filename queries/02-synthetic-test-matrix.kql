@@ -1,0 +1,27 @@
+// Deterministic synthetic tests: fixed timestamps, no ingestion.
+let Anchor = datetime(2026-10-11T12:00:00Z);
+let Cases = datatable(Case:string, FailureTotal:long, SuccessAgeSeconds:long, SuccessIP:string, Expected:long)
+[
+  "positive", 5, 30, "192.0.2.10", 1,
+  "below_threshold", 4, 30, "192.0.2.10", 0,
+  "success_before_failures", 5, 270, "192.0.2.10", 0,
+  "outside_window", 5, -120, "192.0.2.10", 0,
+  "different_ip", 5, 30, "192.0.2.20", 0,
+  "no_failures", 0, 30, "192.0.2.10", 0
+];
+let Failures = Cases
+| where FailureTotal > 0
+| mv-expand Index=range(0, FailureTotal-1, 1) to typeof(long)
+| extend TimeGenerated=Anchor-(240-30*Index)*1s, Account="atlas.demo@example.invalid", IPAddress="192.0.2.10"
+| summarize FailureCount=count(), FirstFailure=min(TimeGenerated), LastFailure=max(TimeGenerated) by Case, Account, IPAddress
+| where FailureCount >= 5;
+let Hits = Cases
+| extend TimeGenerated=Anchor-SuccessAgeSeconds*1s, Account="atlas.demo@example.invalid", IPAddress=SuccessIP
+| join kind=inner Failures on Case, Account, IPAddress
+| where TimeGenerated > LastFailure and TimeGenerated-FirstFailure <= 5m
+| summarize Actual=count() by Case;
+Cases
+| join kind=leftouter Hits on Case
+| extend Actual=coalesce(Actual, tolong(0))
+| project Case, Expected, Actual, Passed=(Expected==Actual)
+| order by Case asc

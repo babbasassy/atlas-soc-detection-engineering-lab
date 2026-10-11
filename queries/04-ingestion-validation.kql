@@ -1,0 +1,5 @@
+// Executed in Log Analytics. Summarized output avoids caller identities.
+AzureActivity
+| where TimeGenerated > ago(24h)
+| summarize Events=count(), LastSeen=max(TimeGenerated) by ResourceGroup, OperationNameValue, ActivityStatusValue
+| order by LastSeen desc
